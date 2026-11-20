@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile isolated by UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "createdAt", "updatedAt"]
+    },
+    "Itinerary": {
+      "title": "Itinerary",
+      "description": "AI-generated and user-editable day-by-day travel itinerary.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "destination": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "travelMode": { "type": "string", "enum": ["WALKING", "DRIVING", "TRANSIT", "BICYCLING"] },
+        "pace": { "type": "string", "enum": ["relaxed", "balanced", "intensive"] },
+        "daysCount": { "type": "integer" },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "days": { "type": "array", "description": "Day-by-day schedule list (max 14 days)." },
+        "sources": { "type": "array", "description": "Google Search grounding citations (max 25)." },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "ownerName", "title", "destination", "travelMode", "pace", "daysCount", "summary", "days", "sources", "isPublic", "createdAt", "updatedAt"]
+    },
+    "CollabList": {
+      "title": "CollabList",
+      "description": "Collaborative travel wishlist where travelers co-curate landmarks.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "destination": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 800 },
+        "joinCode": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[A-Z0-9\\-]+$" },
+        "visibility": { "type": "string", "enum": ["shared", "private"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "ownerName", "title", "destination", "description", "joinCode", "visibility", "createdAt", "updatedAt"]
+    },
+    "CollabListMember": {
+      "title": "CollabListMember",
+      "description": "Membership record granting collaboration rights on a CollabList.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "role": { "type": "string", "enum": ["owner", "collaborator"] },
+        "listOwnerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "listVisibility": { "type": "string", "enum": ["shared", "private"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "role", "listOwnerId", "listVisibility", "joinedAt"]
+    },
+    "CollabListItem": {
+      "title": "CollabListItem",
+      "description": "A landmark or place entry inside a collaborative travel list.",
+      "type": "object",
+      "properties": {
+        "listId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "listOwnerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "listVisibility": { "type": "string", "enum": ["shared", "private"] },
+        "addedByUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "addedByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "placeName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "address": { "type": "string", "maxLength": 240 },
+        "placeId": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 60 },
+        "note": { "type": "string", "maxLength": 500 },
+        "visited": { "type": "boolean" },
+        "votes": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["listId", "listOwnerId", "listVisibility", "addedByUid", "addedByName", "placeName", "address", "category", "note", "visited", "votes", "createdAt", "updatedAt"]
+    },
+    "TravelExperience": {
+      "title": "TravelExperience",
+      "description": "Published travel story and field notes shared on the platform.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "location": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "country": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "travelDate": { "type": "string", "maxLength": 40 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "story": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "tips": { "type": "string", "maxLength": 1000 },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "tags": { "type": "array", "description": "Up to 8 short topic tags." },
+        "likesCount": { "type": "integer" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "authorName", "title", "location", "country", "travelDate", "summary", "story", "tips", "imageUrl", "tags", "likesCount", "isPublished", "createdAt", "updatedAt"]
+    },
+    "ExperienceLike": {
+      "title": "ExperienceLike",
+      "description": "Atomic appreciation record linking a user to a TravelExperience.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "experienceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "experienceId", "createdAt"]
+    },
+    "ExperienceComment": {
+      "title": "ExperienceComment",
+      "description": "Reader comment on a published TravelExperience.",
+      "type": "object",
+      "properties": {
+        "experienceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "experiencePublished": { "type": "boolean" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["experienceId", "experiencePublished", "authorId", "authorName", "body", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only private user profile document."
+    },
+    "/itineraries/{itineraryId}": {
+      "schema": { "$ref": "#/entities/Itinerary" },
+      "description": "Saved and editable day-by-day travel itineraries."
+    },
+    "/collabLists/{listId}": {
+      "schema": { "$ref": "#/entities/CollabList" },
+      "description": "Collaborative travel lists."
+    },
+    "/collabLists/{listId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/CollabListMember" },
+      "description": "Members authorized to edit a collaborative list."
+    },
+    "/collabLists/{listId}/items/{itemId}": {
+      "schema": { "$ref": "#/entities/CollabListItem" },
+      "description": "Places added to a collaborative travel list."
+    },
+    "/experiences/{experienceId}": {
+      "schema": { "$ref": "#/entities/TravelExperience" },
+      "description": "Travel experiences and photography journals shared on the platform."
+    },
+    "/experiences/{experienceId}/likes/{likeUserId}": {
+      "schema": { "$ref": "#/entities/ExperienceLike" },
+      "description": "Per-user appreciation markers synchronized atomically with likesCount."
+    },
+    "/experiences/{experienceId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/ExperienceComment" },
+      "description": "Traveler comments on shared travel experiences."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Wayfarer Atlas",
+  "description": "AI-powered travel itinerary studio with Google Search landmark research, live Google Maps route navigation, landmark photo analysis, audio tour guides, Word document export, collaborative lists, and travel journals.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

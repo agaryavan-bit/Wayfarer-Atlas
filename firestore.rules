@@ -1,0 +1,493 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isNonEmptyString(val, maxLen) {
+      return val is string && val.size() >= 1 && val.size() <= maxLen;
+    }
+
+    function isBoundedString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isStringList(val, maxItems) {
+      return val is list && val.size() <= maxItems && (val.size() == 0 || val[0] is string);
+    }
+
+    function isMapList(val, maxItems) {
+      return val is list && val.size() <= maxItems && (val.size() == 0 || val[0] is map);
+    }
+
+    // Entity Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isNonEmptyString(data.displayName, 100)
+        && (!('email' in data) || isBoundedString(data.email, 200))
+        && (!('photoURL' in data) || isBoundedString(data.photoURL, 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidItinerary(data) {
+      return data.keys().hasAll([
+          'ownerId', 'ownerName', 'title', 'destination', 'travelMode',
+          'pace', 'daysCount', 'summary', 'days', 'sources', 'isPublic',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'ownerName', 'title', 'destination', 'travelMode',
+          'pace', 'daysCount', 'summary', 'days', 'sources', 'isPublic',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && isNonEmptyString(data.ownerName, 100)
+        && isNonEmptyString(data.title, 160)
+        && isNonEmptyString(data.destination, 120)
+        && data.travelMode in ['WALKING', 'DRIVING', 'TRANSIT', 'BICYCLING']
+        && data.pace in ['relaxed', 'balanced', 'intensive']
+        && data.daysCount is int && data.daysCount >= 1 && data.daysCount <= 14
+        && isBoundedString(data.summary, 2000)
+        && isMapList(data.days, 14)
+        && isMapList(data.sources, 25)
+        && data.isPublic is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCollabList(data) {
+      return data.keys().hasAll([
+          'ownerId', 'ownerName', 'title', 'destination', 'description',
+          'joinCode', 'visibility', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'ownerName', 'title', 'destination', 'description',
+          'joinCode', 'visibility', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && isNonEmptyString(data.ownerName, 100)
+        && isNonEmptyString(data.title, 140)
+        && isNonEmptyString(data.destination, 120)
+        && isBoundedString(data.description, 800)
+        && data.joinCode is string && data.joinCode.size() >= 4 && data.joinCode.size() <= 24 && data.joinCode.matches('^[A-Z0-9\\-]+$')
+        && data.visibility in ['shared', 'private']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCollabListMember(data) {
+      return data.keys().hasAll([
+          'userId', 'displayName', 'role', 'listOwnerId', 'listVisibility', 'joinedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'displayName', 'role', 'listOwnerId', 'listVisibility', 'joinedAt'
+        ])
+        && isValidId(data.userId)
+        && isNonEmptyString(data.displayName, 100)
+        && data.role in ['owner', 'collaborator']
+        && isValidId(data.listOwnerId)
+        && data.listVisibility in ['shared', 'private']
+        && data.joinedAt is timestamp;
+    }
+
+    function isValidCollabListItem(data) {
+      return data.keys().hasAll([
+          'listId', 'listOwnerId', 'listVisibility', 'addedByUid', 'addedByName',
+          'placeName', 'address', 'category', 'note', 'visited', 'votes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'listId', 'listOwnerId', 'listVisibility', 'addedByUid', 'addedByName',
+          'placeName', 'address', 'placeId', 'category', 'note', 'visited', 'votes',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.listId)
+        && isValidId(data.listOwnerId)
+        && data.listVisibility in ['shared', 'private']
+        && isValidId(data.addedByUid)
+        && isNonEmptyString(data.addedByName, 100)
+        && isNonEmptyString(data.placeName, 160)
+        && isBoundedString(data.address, 240)
+        && (!('placeId' in data) || isBoundedString(data.placeId, 200))
+        && isBoundedString(data.category, 60)
+        && isBoundedString(data.note, 500)
+        && data.visited is bool
+        && data.votes is int && data.votes >= 0 && data.votes <= 10000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTravelExperience(data) {
+      return data.keys().hasAll([
+          'authorId', 'authorName', 'title', 'location', 'country', 'travelDate',
+          'summary', 'story', 'tips', 'imageUrl', 'tags', 'likesCount',
+          'isPublished', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'authorId', 'authorName', 'title', 'location', 'country', 'travelDate',
+          'summary', 'story', 'tips', 'imageUrl', 'tags', 'likesCount',
+          'isPublished', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.authorId)
+        && isNonEmptyString(data.authorName, 100)
+        && isNonEmptyString(data.title, 160)
+        && isNonEmptyString(data.location, 120)
+        && isNonEmptyString(data.country, 80)
+        && isBoundedString(data.travelDate, 40)
+        && isNonEmptyString(data.summary, 400)
+        && isNonEmptyString(data.story, 4000)
+        && isBoundedString(data.tips, 1000)
+        && isBoundedString(data.imageUrl, 600)
+        && isStringList(data.tags, 8)
+        && data.likesCount is int && data.likesCount >= 0 && data.likesCount <= 1000000
+        && data.isPublished is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidExperienceLike(data) {
+      return data.keys().hasAll(['userId', 'experienceId', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'experienceId', 'createdAt'])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidId(data.experienceId)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidExperienceComment(data) {
+      return data.keys().hasAll([
+          'experienceId', 'experiencePublished', 'authorId', 'authorName', 'body', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'experienceId', 'experiencePublished', 'authorId', 'authorName', 'body', 'createdAt'
+        ])
+        && isValidId(data.experienceId)
+        && data.experiencePublished is bool
+        && isValidId(data.authorId)
+        && data.authorId == request.auth.uid
+        && isNonEmptyString(data.authorName, 100)
+        && isNonEmptyString(data.body, 800)
+        && data.createdAt is timestamp;
+    }
+
+    // 1. Private User Profiles (PII Isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'photoURL', 'updatedAt']);
+      allow delete: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+    }
+
+    // 2. Saved & Editable Travel Itineraries
+    match /itineraries/{itineraryId} {
+      allow get: if isValidId(itineraryId)
+        && (existing().isPublic == true || (isSignedIn() && existing().ownerId == request.auth.uid));
+      allow list: if isSignedIn()
+        && (resource.data.ownerId == request.auth.uid || resource.data.isPublic == true);
+      allow create: if isVerifiedUser()
+        && isValidId(itineraryId)
+        && isValidItinerary(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(itineraryId)
+        && isValidItinerary(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'destination', 'travelMode', 'pace', 'daysCount',
+          'summary', 'days', 'sources', 'isPublic', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedUser()
+        && isValidId(itineraryId)
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // 3. Collaborative Travel Lists + Master Gate Subcollections
+    match /collabLists/{listId} {
+      allow get: if isValidId(listId)
+        && (existing().visibility == 'shared' || (isSignedIn() && existing().ownerId == request.auth.uid));
+      allow list: if isSignedIn()
+        && (resource.data.visibility == 'shared' || resource.data.ownerId == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && isValidId(listId)
+        && isValidCollabList(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(listId)
+        && isValidCollabList(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'destination', 'description', 'visibility', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedUser()
+        && isValidId(listId)
+        && existing().ownerId == request.auth.uid;
+
+      // Subcollection: List Members
+      match /members/{memberId} {
+        allow get: if isSignedIn()
+          && isValidId(listId)
+          && isValidId(memberId)
+          && (
+            existing().userId == request.auth.uid
+            || existing().listOwnerId == request.auth.uid
+            || existing().listVisibility == 'shared'
+          );
+        allow list: if isSignedIn()
+          && (
+            resource.data.listOwnerId == request.auth.uid
+            || resource.data.listVisibility == 'shared'
+            || resource.data.userId == request.auth.uid
+          );
+        allow create: if isVerifiedUser()
+          && isValidId(listId)
+          && isValidId(memberId)
+          && memberId == request.auth.uid
+          && isValidCollabListMember(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().joinedAt == request.time
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && incoming().listOwnerId == get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId
+          && incoming().listVisibility == get(/databases/$(database)/documents/collabLists/$(listId)).data.visibility
+          && (
+            (incoming().role == 'owner' && get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid)
+            || (incoming().role == 'collaborator' && get(/databases/$(database)/documents/collabLists/$(listId)).data.visibility == 'shared')
+          );
+        allow update: if false;
+        allow delete: if isVerifiedUser()
+          && isValidId(listId)
+          && isValidId(memberId)
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && (
+            memberId == request.auth.uid
+            || get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid
+          );
+      }
+
+      // Subcollection: List Items (Master Gate checks parent list + membership)
+      match /items/{itemId} {
+        allow get: if isSignedIn()
+          && isValidId(listId)
+          && isValidId(itemId)
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && (
+            get(/databases/$(database)/documents/collabLists/$(listId)).data.visibility == 'shared'
+            || get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid
+            || exists(/databases/$(database)/documents/collabLists/$(listId)/members/$(request.auth.uid))
+          );
+        allow list: if isSignedIn()
+          && (
+            resource.data.listOwnerId == request.auth.uid
+            || resource.data.listVisibility == 'shared'
+          );
+        allow create: if isVerifiedUser()
+          && isValidId(listId)
+          && isValidId(itemId)
+          && isValidCollabListItem(incoming())
+          && incoming().listId == listId
+          && incoming().addedByUid == request.auth.uid
+          && incoming().votes == 1
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && incoming().listOwnerId == get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId
+          && incoming().listVisibility == get(/databases/$(database)/documents/collabLists/$(listId)).data.visibility
+          && (
+            get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid
+            || exists(/databases/$(database)/documents/collabLists/$(listId)/members/$(request.auth.uid))
+          );
+        allow update: if isVerifiedUser()
+          && isValidId(listId)
+          && isValidId(itemId)
+          && isValidCollabListItem(incoming())
+          && incoming().listId == existing().listId
+          && incoming().listOwnerId == existing().listOwnerId
+          && incoming().addedByUid == existing().addedByUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && (
+            // Tier 1: Owner or item creator edits full item details
+            (
+              (
+                get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid
+                || existing().addedByUid == request.auth.uid
+              )
+              && incoming().diff(existing()).affectedKeys().hasOnly(['placeName', 'address', 'category', 'note', 'visited', 'votes', 'updatedAt'])
+            )
+            ||
+            // Tier 2: Collaborator member toggles visited or increments vote
+            (
+              exists(/databases/$(database)/documents/collabLists/$(listId)/members/$(request.auth.uid))
+              && incoming().diff(existing()).affectedKeys().hasOnly(['visited', 'votes', 'updatedAt'])
+              && (incoming().votes == existing().votes || incoming().votes == existing().votes + 1)
+            )
+          );
+        allow delete: if isVerifiedUser()
+          && isValidId(listId)
+          && isValidId(itemId)
+          && exists(/databases/$(database)/documents/collabLists/$(listId))
+          && (
+            get(/databases/$(database)/documents/collabLists/$(listId)).data.ownerId == request.auth.uid
+            || existing().addedByUid == request.auth.uid
+          );
+      }
+    }
+
+    // 4. Shared Travel Experiences Journal
+    match /experiences/{experienceId} {
+      allow get: if isValidId(experienceId)
+        && (existing().isPublished == true || (isSignedIn() && existing().authorId == request.auth.uid));
+      allow list: if resource.data.isPublished == true
+        || (isSignedIn() && resource.data.authorId == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && isValidId(experienceId)
+        && isValidTravelExperience(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().likesCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(experienceId)
+        && isValidTravelExperience(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action 1: Author edits their travel experience
+          (
+            existing().authorId == request.auth.uid
+            && incoming().updatedAt == request.time
+            && incoming().likesCount == existing().likesCount
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'location', 'country', 'travelDate', 'summary',
+              'story', 'tips', 'imageUrl', 'tags', 'isPublished', 'updatedAt'
+            ])
+          )
+          ||
+          // Action 2: Atomic Like increment synced with likes subcollection
+          (
+            existing().isPublished == true
+            && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+            && incoming().likesCount == existing().likesCount + 1
+            && !exists(/databases/$(database)/documents/experiences/$(experienceId)/likes/$(request.auth.uid))
+            && existsAfter(/databases/$(database)/documents/experiences/$(experienceId)/likes/$(request.auth.uid))
+          )
+          ||
+          // Action 3: Atomic Like decrement synced with likes subcollection
+          (
+            existing().isPublished == true
+            && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+            && incoming().likesCount == existing().likesCount - 1
+            && exists(/databases/$(database)/documents/experiences/$(experienceId)/likes/$(request.auth.uid))
+            && !existsAfter(/databases/$(database)/documents/experiences/$(experienceId)/likes/$(request.auth.uid))
+          )
+        );
+      allow delete: if isVerifiedUser()
+        && isValidId(experienceId)
+        && existing().authorId == request.auth.uid;
+
+      // Subcollection: Atomic Experience Likes
+      match /likes/{likeUserId} {
+        allow get: if isSignedIn() && isValidId(experienceId) && isValidId(likeUserId) && likeUserId == request.auth.uid;
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(experienceId)
+          && isValidId(likeUserId)
+          && likeUserId == request.auth.uid
+          && isValidExperienceLike(incoming())
+          && incoming().experienceId == experienceId
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/experiences/$(experienceId))
+          && get(/databases/$(database)/documents/experiences/$(experienceId)).data.isPublished == true
+          && getAfter(/databases/$(database)/documents/experiences/$(experienceId)).data.likesCount
+             == get(/databases/$(database)/documents/experiences/$(experienceId)).data.likesCount + 1;
+        allow update: if false;
+        allow delete: if isVerifiedUser()
+          && isValidId(experienceId)
+          && isValidId(likeUserId)
+          && likeUserId == request.auth.uid
+          && exists(/databases/$(database)/documents/experiences/$(experienceId))
+          && getAfter(/databases/$(database)/documents/experiences/$(experienceId)).data.likesCount
+             == get(/databases/$(database)/documents/experiences/$(experienceId)).data.likesCount - 1;
+      }
+
+      // Subcollection: Experience Comments
+      match /comments/{commentId} {
+        allow get: if isValidId(experienceId)
+          && isValidId(commentId)
+          && (existing().experiencePublished == true || (isSignedIn() && existing().authorId == request.auth.uid));
+        allow list: if resource.data.experiencePublished == true
+          || (isSignedIn() && resource.data.authorId == request.auth.uid);
+        allow create: if isVerifiedUser()
+          && isValidId(experienceId)
+          && isValidId(commentId)
+          && isValidExperienceComment(incoming())
+          && incoming().experienceId == experienceId
+          && incoming().experiencePublished == true
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/experiences/$(experienceId))
+          && get(/databases/$(database)/documents/experiences/$(experienceId)).data.isPublished == true;
+        allow update: if false;
+        allow delete: if isVerifiedUser()
+          && isValidId(experienceId)
+          && isValidId(commentId)
+          && existing().authorId == request.auth.uid;
+      }
+    }
+  }
+}
